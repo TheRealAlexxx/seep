@@ -28,6 +28,7 @@ class Rule:
     secret_group: int = 0  # capture group holding the secret; 0 = whole match
     entropy_group: Optional[int] = None  # group to entropy-check, if any
     entropy_min: float = 4.3
+    entropy_min_length: int = 16  # floor for the entropy check on this rule
 
     def applies_to(self, text):
         """Cheap prefilter: any keyword must be present (case-insensitive)."""
@@ -42,14 +43,15 @@ class Rule:
         for match in self.pattern.finditer(text):
             if self.entropy_group is not None:
                 candidate = match.group(self.entropy_group)
-                if not is_high_entropy(candidate, threshold=self.entropy_min):
+                if not is_high_entropy(candidate, threshold=self.entropy_min,
+                                       min_length=self.entropy_min_length):
                     continue
             yield match
 
 
 def _rule(rule_id, description, pattern, severity, keywords=(),
           secret_group=0, entropy_group=None, entropy_min=4.3,
-          flags=re.IGNORECASE):
+          entropy_min_length=16, flags=re.IGNORECASE):
     return Rule(
         id=rule_id,
         description=description,
@@ -59,6 +61,7 @@ def _rule(rule_id, description, pattern, severity, keywords=(),
         secret_group=secret_group,
         entropy_group=entropy_group,
         entropy_min=entropy_min,
+        entropy_min_length=entropy_min_length,
     )
 
 
@@ -75,7 +78,7 @@ RULES = [
     _rule(
         "aws-secret-access-key",
         "AWS secret access key",
-        r"(?i)\baws(.{0,20})?(secret|private)?(.{0,20})?['\"]([0-9a-zA-Z/+]{40})['\"]",
+        r"(?i)\baws(.{0,20})?(secret|private)?(.{0,20})?['\"]?([0-9a-zA-Z/+]{40})(?![0-9a-zA-Z/+])['\"]?",
         "high",
         keywords=("aws", "secret"),
         secret_group=4,
@@ -349,24 +352,26 @@ RULES = [
     _rule(
         "generic-password",
         "Hardcoded password assignment",
-        r"(?i)\b(pass(?:word|wd|phrase)|pwd)\b\s*[:=]\s*['\"]([^'\"\s]{8,64})['\"]",
+        r"(?i)\b(pass(?:word|wd|phrase)|pwd)\b\s*[:=]\s*['\"]?([^'\"\s]{8,64})(?![^'\"\s])['\"]?",
         "medium",
         keywords=("password", "passwd", "pwd", "passphrase"),
         secret_group=2,
         entropy_group=2,
         entropy_min=3.5,
+        entropy_min_length=8,
         flags=0,
     ),
     _rule(
         "generic-api-key",
         "Hardcoded API key assignment",
-        r"(?i)\b(api[_-]?key|apikey|access[_-]?token|auth[_-]?token|client[_-]?secret)\b\s*[:=]\s*['\"]([0-9a-zA-Z\-_+/=.]{16,64})['\"]",
+        r"(?i)\b(api[_-]?key|apikey|access[_-]?token|auth[_-]?token|client[_-]?secret)\b\s*[:=]\s*['\"]?([0-9a-zA-Z\-_+/=.]{16,64})(?![0-9a-zA-Z\-_+/=.])['\"]?",
         "medium",
         keywords=("api_key", "apikey", "api-key", "access_token", "access-token",
                   "auth_token", "auth-token", "client_secret", "client-secret"),
         secret_group=2,
         entropy_group=2,
         entropy_min=4.0,
+        entropy_min_length=12,
         flags=0,
     ),
 ]

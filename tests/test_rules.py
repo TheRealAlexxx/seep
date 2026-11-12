@@ -164,3 +164,44 @@ class RuleIntegrityTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RecallGapTest(unittest.TestCase):
+    """Independent-review reproductions: values that must be caught."""
+
+    def test_short_high_entropy_password_caught(self):
+        # 12-char password with entropy 3.58 was missed: rule regex allowed
+        # 8-64 chars but the entropy check hard-floored at 16.
+        self.assertEqual(
+            hits("generic-password", 'password = "xLd6GncfBAep"'),
+            ["xLd6GncfBAep"],
+        )
+
+    def test_unquoted_aws_secret_in_env_file_caught(self):
+        text = "AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY\n"
+        self.assertEqual(
+            hits("aws-secret-access-key", text),
+            ["wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"],
+        )
+
+    def test_unquoted_generic_api_key_caught(self):
+        self.assertEqual(
+            hits("generic-api-key", "api_key=g9K2xQ7mZ4vL1pW8nR3tY6uI\n"),
+            ["g9K2xQ7mZ4vL1pW8nR3tY6uI"],
+        )
+
+    def test_unquoted_placeholder_still_ignored(self):
+        self.assertEqual(hits("generic-api-key", "api_key=your-api-key-here\n"), [])
+        self.assertEqual(hits("generic-password", "password=changeme\n"), [])
+
+    def test_oversized_value_not_partially_matched(self):
+        # 65+ char unquoted values must not match their first 64 chars.
+        self.assertEqual(
+            hits("generic-api-key", "api_key=" + "aB3" * 25 + "\n"), []
+        )
+
+    def test_quoted_still_caught(self):
+        self.assertEqual(
+            hits("generic-api-key", 'api_key = "g9K2xQ7mZ4vL1pW8nR3tY6uI"'),
+            ["g9K2xQ7mZ4vL1pW8nR3tY6uI"],
+        )
