@@ -326,6 +326,29 @@ RULES = [
         secret_group=1,
         flags=0,
     ),
+    # --- AI providers ---
+    # Prefixes grounded in owning sources: Anthropic's official docs show
+    # keys starting sk-ant- (example sk-ant-api03-...); sk-proj- is the
+    # current OpenAI project-key prefix per OpenAI's own community forum.
+    # Length floors are conservative, not format claims.
+    _rule(
+        "anthropic-api-key",
+        "Anthropic API key",
+        r"\b(sk-ant-[0-9A-Za-z\-_]{20,})\b",
+        "high",
+        keywords=("sk-ant-",),
+        secret_group=1,
+        flags=0,
+    ),
+    _rule(
+        "openai-project-key",
+        "OpenAI project API key",
+        r"\b(sk-proj-[0-9A-Za-z\-_]{20,})\b",
+        "high",
+        keywords=("sk-proj-",),
+        secret_group=1,
+        flags=0,
+    ),
     # --- Structured secrets ---
     _rule(
         "jwt",

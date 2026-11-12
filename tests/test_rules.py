@@ -264,3 +264,24 @@ class PrecisionEvidenceTest(unittest.TestCase):
         self.assertEqual(
             hits("generic-api-key", line), ["2YotnFZFEjr1zCsicMWpAA"]
         )
+
+
+class AIProviderRuleTest(unittest.TestCase):
+    def test_anthropic_key(self):
+        token = "sk-ant-api03-" + "Zx9Qw8Lp2Mn4Vb7Kj3Hg6F" + "d5Sa1Rt0Yu"
+        self.assertEqual(
+            hits("anthropic-api-key", 'ANTHROPIC_API_KEY="' + token + '"'),
+            [token],
+        )
+
+    def test_openai_project_key(self):
+        token = "sk-proj-" + "Zx7Qw9Lp2Mn4Vb8" * 3
+        self.assertEqual(
+            hits("openai-project-key", "OPENAI_API_KEY=" + token + "\n"),
+            [token],
+        )
+
+    def test_bare_sk_without_prefix_not_flagged(self):
+        self.assertEqual(
+            hits("openai-project-key", "key = sk-notaprojkeyhere\n"), []
+        )
