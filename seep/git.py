@@ -8,6 +8,7 @@ combination appears, which answers the question a developer actually asks:
 
 import re
 import subprocess
+import tempfile
 from bisect import bisect_right
 from dataclasses import replace
 from typing import List, Optional, Tuple
@@ -110,25 +111,41 @@ def _scan_added(scanner, added, commit, author, date):
     return findings
 
 
+_LOG_MARK = "SEEP-COMMIT\x1f"
+
+
 def scan_history(scanner, root, since=None, rev="--all", first_only=True):
     """Scan git history. Returns findings attributed to introducing commits.
+
+    Streams a single `git log -p` process instead of spawning git per
+    commit - the difference between one subprocess and one per commit is
+    most of the runtime on real histories. -m makes merge commits diff
+    against each parent in regular format, so changes made inside merges
+    (conflict resolutions) are scanned. Parent-1 sections arrive first, and
+    oldest-first order plus first_only dedupe means anything also present
+    in a branch commit is attributed there, not to the merge.
+
+    --first-parent must NOT be passed to git log itself: it restricts
+    traversal, silently hiding every commit on a merged branch.
 
     With first_only=True (default) each unique (rule, path, fingerprint) is
     reported once, at the earliest commit that introduced it.
     """
-    commits = iter_commits(root, since=since, rev=rev)
+    args = ["log", "--reverse", "-p", "--unified=0", "-m",
+            "--format=" + _LOG_MARK + "%H%x1f%an%x1f%aI", rev]
+    if since:
+        args.append("--since=" + since)
     findings = []
     seen = set()
-    for sha, author, date in commits:
-        # -m --first-parent: merge commits produce a regular diff against
-        # their first parent, so changes made inside merges (conflict
-        # resolutions) are scanned with correct paths and line numbers.
-        # Without it, merges print a combined diff a line parser cannot
-        # handle, or nothing at all.
-        diff = _run_git(root, ["show", "--format=", "--unified=0",
-                               "-m", "--first-parent", sha])
+    current = None
+    diff_lines = []
+
+    def flush():
+        if current is None:
+            return
+        sha, author, date = current
         added = {}
-        for path, line_no, text in parse_added_lines(diff):
+        for path, line_no, text in parse_added_lines("\n".join(diff_lines)):
             added.setdefault(path, []).append((line_no, text))
         for finding in _scan_added(scanner, added, sha[:12], author, date):
             if first_only:
@@ -136,6 +153,32 @@ def scan_history(scanner, root, since=None, rev="--all", first_only=True):
                     continue
                 seen.add(finding.uid)
             findings.append(finding)
+
+    err_file = tempfile.TemporaryFile()
+    try:
+        proc = subprocess.Popen(
+            ["git", "-C", root] + args,
+            stdout=subprocess.PIPE, stderr=err_file,
+            encoding="utf-8", errors="surrogateescape",
+        )
+    except FileNotFoundError:
+        err_file.close()
+        raise GitError("git executable not found")
+    for line in proc.stdout:
+        if line.startswith(_LOG_MARK):
+            flush()
+            _, sha, author, date = line.rstrip("\n").split("\x1f")
+            current = (sha, author, date)
+            diff_lines = []
+        else:
+            diff_lines.append(line.rstrip("\n"))
+    flush()
+    returncode = proc.wait()
+    err_file.seek(0)
+    stderr = err_file.read().decode("utf-8", "replace")
+    err_file.close()
+    if returncode != 0:
+        raise GitError(stderr.strip() or "git log failed")
     findings.sort(key=lambda f: (f.path, f.line_number, f.rule_id))
     return findings
 

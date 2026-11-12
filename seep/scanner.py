@@ -33,7 +33,7 @@ class Finding:
     line_number: int
     redacted_secret: str
     secret_fingerprint: str
-    line_preview: str
+    line_preview: Optional[str] = None
     commit: Optional[str] = None
     author: Optional[str] = None
     commit_date: Optional[str] = None
@@ -56,10 +56,14 @@ def _looks_binary(chunk):
 
 
 class Scanner:
-    def __init__(self, rules=None, allowlist=(), max_file_bytes=DEFAULT_MAX_FILE_BYTES):
+    def __init__(self, rules=None, allowlist=(), max_file_bytes=DEFAULT_MAX_FILE_BYTES,
+                 include_context=False):
         self.rules = list(rules) if rules is not None else list(RULES)
         self.allowlist = [re.compile(p) for p in allowlist]
         self.max_file_bytes = max_file_bytes
+        # Context lines are opt-in: a line can hold credentials in formats
+        # no rule recognizes, and those would appear verbatim.
+        self.include_context = include_context
         self.skipped_large = 0
         self.skipped_binary = 0
 
@@ -98,13 +102,16 @@ class Scanner:
             if key in seen:
                 continue
             seen.add(key)
-            line_text = lines[line_no - 1] if line_no - 1 < len(lines) else ""
-            preview = line_text
-            # Longest first so a secret that is a substring of another
-            # (e.g. a password inside a database URL) is already gone when
-            # the shorter one is replaced.
-            for other in sorted(secrets_by_line[line_no], key=len, reverse=True):
-                preview = preview.replace(other, redact(other))
+            preview = None
+            if self.include_context:
+                line_text = lines[line_no - 1] if line_no - 1 < len(lines) else ""
+                preview = line_text
+                # Longest first so a secret that is a substring of another
+                # (e.g. a password inside a database URL) is already gone
+                # when the shorter one is replaced.
+                for other in sorted(secrets_by_line[line_no], key=len, reverse=True):
+                    preview = preview.replace(other, redact(other))
+                preview = preview.strip()[:200]
             findings.append(Finding(
                 rule_id=rule.id,
                 severity=rule.severity,
@@ -112,7 +119,7 @@ class Scanner:
                 line_number=line_no,
                 redacted_secret=redact(secret),
                 secret_fingerprint=fp,
-                line_preview=preview.strip()[:200],
+                line_preview=preview,
             ))
         findings.sort(key=lambda f: (f.path, f.line_number, f.rule_id))
         return findings

@@ -55,6 +55,10 @@ def build_parser():
     scan.add_argument("--fail-on", choices=("low", "medium", "high"),
                       help="minimum severity that triggers exit code 1")
     scan.add_argument("--config", metavar="FILE", help="config file path")
+    scan.add_argument("--show-context", action="store_true",
+                      help="include the source line of each finding in text "
+                           "output. WARNING: lines may contain credential "
+                           "values in formats seep does not recognize.")
 
     rules_cmd = sub.add_parser("rules", help="list detection rules")
     rules_cmd.add_argument("--format", choices=("text", "json"), default="text")
@@ -87,7 +91,11 @@ def _run_scan(args):
         return EXIT_ERROR
     rules = [r for r in RULES if r.id not in config["exclude_rules"]]
     scanner = Scanner(rules=rules, allowlist=config["allowlist"],
-                      max_file_bytes=config["max_file_bytes"])
+                      max_file_bytes=config["max_file_bytes"],
+                      include_context=args.show_context)
+    if args.show_context:
+        print("seep: warning: context lines may expose values in formats "
+              "no rule recognizes", file=sys.stderr)
 
     try:
         if args.staged:

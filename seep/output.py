@@ -26,6 +26,8 @@ def to_text(findings, show_secrets=False):
             location += " (introduced {} by {})".format(f.commit, f.author)
         lines.append(location)
         lines.append("    " + f.redacted_secret)
+        if f.line_preview:
+            lines.append("    | " + f.line_preview)
     summary = "seep: {} finding{}".format(len(findings), "" if len(findings) == 1 else "s")
     counts = {}
     for f in findings:

@@ -152,7 +152,7 @@ Structural rules match documented token formats (prefixes, lengths, alphabets). 
 - **Stdlib only, on purpose.** Every import is Python's standard library, so the scanner runs in minimal CI images, on locked-down machines and inside other tools without an install step. The cost is reinventing some wheels (JSON config instead of TOML, `unittest` instead of pytest); the payoff is zero supply-chain surface for a security tool.
 - **Keyword prefilter before regex.** Each rule declares substrings that must appear in a file before its regex runs (e.g. `glpat-` for GitLab tokens). Most files trigger most rules' prefilters on nothing, so scanning stays fast without an index.
 - **Entropy is a filter, not a detector.** Shannon entropy on its own flags half the identifiers in any codebase. seep uses it only to gate generic assignment rules, with thresholds tuned per charset (hex tops out at 4 bits/char, base64 at 6).
-- **Secrets are redacted at the boundary.** The scanner extracts a match, immediately reduces it to a fingerprint plus an edge-redacted display form, and the full value never reaches a Finding object, report, baseline or log line. Output is safe to paste into tickets and CI logs.
+- **Secrets are redacted at the boundary, and context is opt-in.** The scanner extracts a match and immediately reduces it to a fingerprint plus an edge-redacted display form; reports, baselines and logs carry only that. Source lines are not printed by default: a line can hold credentials in a format no rule recognizes, and those would appear verbatim. `--show-context` opts in per run and prints a warning. Reports are safe to paste into tickets and CI logs; context-enabled output needs a look first.
 - **Oldest-first history walk.** Scanning added lines per commit (instead of every full tree) keeps history scans proportional to total diff size, and reporting first-introduction makes the remediation answer - "what do I rewrite" - direct.
 
 ## Limitations
@@ -169,7 +169,7 @@ Structural rules match documented token formats (prefixes, lengths, alphabets). 
 python -m unittest discover -s tests -v
 ```
 
-108 tests cover the entropy engine, every rule (positive and negative fixtures), the scanner, git attribution, baselines, output formats, config and CLI exit codes. Test fixtures are publicly documented non-live example credentials (e.g. AWS's documentation key pair) or generated dummies in the right format.
+The suite covers the entropy engine, every rule (positive and negative fixtures), the scanner, git attribution, baselines, output formats, config and CLI exit codes. Test fixtures are publicly documented non-live example credentials (e.g. AWS's documentation key pair) or generated dummies in the right format.
 
 ## License
 

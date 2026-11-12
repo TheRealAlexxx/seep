@@ -125,7 +125,7 @@ class CoLocatedSecretTest(unittest.TestCase):
 
     def test_two_secrets_one_line_both_redacted_in_every_preview(self):
         line = 'aws = "' + DOC_AWS_KEY + '"; gh = "' + self.GH_TOKEN + '"'
-        findings = Scanner().scan_text(line, path="x.py")
+        findings = Scanner(include_context=True).scan_text(line, path="x.py")
         self.assertEqual(len(findings), 2)
         for finding in findings:
             self.assertNotIn(DOC_AWS_KEY, finding.line_preview)
@@ -133,14 +133,21 @@ class CoLocatedSecretTest(unittest.TestCase):
 
     def test_same_secret_twice_on_line_fully_redacted(self):
         line = "a=" + DOC_AWS_KEY + " b=" + DOC_AWS_KEY
-        for finding in Scanner().scan_text(line):
+        for finding in Scanner(include_context=True).scan_text(line):
             self.assertNotIn(DOC_AWS_KEY, finding.line_preview)
 
     def test_secret_substring_of_longer_secret_handled(self):
         url = "postgres://user:Sup3rS3cret!x9@host:5432/db"
         line = 'db = "' + url + '"; backup = "' + url + '"'
-        for finding in Scanner().scan_text(line):
+        for finding in Scanner(include_context=True).scan_text(line):
             self.assertNotIn(url, finding.line_preview)
+
+    def test_context_is_opt_in_and_off_by_default(self):
+        line = 'aws = "' + DOC_AWS_KEY + '"; gh = "' + self.GH_TOKEN + '"'
+        for finding in Scanner().scan_text(line):
+            self.assertIsNone(finding.line_preview)
+        for finding in Scanner(include_context=True).scan_text(line):
+            self.assertIsNotNone(finding.line_preview)
 
 
 class BinarySniffDepthTest(unittest.TestCase):

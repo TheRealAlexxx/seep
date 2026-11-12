@@ -64,6 +64,16 @@ class CliWorkspaceTest(unittest.TestCase):
         payload = json.loads(out)
         self.assertEqual(payload["version"], "2.1.0")
 
+    def test_unrecognized_value_on_line_not_in_default_output(self):
+        # A credential in a format no rule knows must not leak via context.
+        unknown = "sk-proj-" + "Zx7Qw9Lp2Mn4Vb8" * 3
+        self.write("app.py", 'key = ' + DOC_AWS_KEY + '; other = "' + unknown + '"')
+        code, out, _ = run_cli(["scan", self.dir])
+        self.assertEqual(code, EXIT_FINDINGS)
+        self.assertNotIn(unknown, out)
+        code, out, err = run_cli(["scan", self.dir, "--show-context"])
+        self.assertIn("warning", err.lower())
+
     def test_missing_directory_is_error(self):
         code, _, err = run_cli(["scan", os.path.join(self.dir, "nope")])
         self.assertEqual(code, EXIT_ERROR)
