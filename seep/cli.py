@@ -42,7 +42,10 @@ def build_parser():
     mode.add_argument("--history", action="store_true",
                       help="scan full git history instead of working tree")
     mode.add_argument("--since", metavar="DATE",
-                      help="scan git history since DATE (implies --history)")
+                      help="scan git history since DATE (implies --history); "
+                           "commits before DATE are not inspected, so a "
+                           "limited scan says nothing about older history "
+                           "or the current tree")
     scan.add_argument("--baseline", metavar="FILE",
                       help="only report findings not in FILE")
     scan.add_argument("--write-baseline", metavar="FILE",

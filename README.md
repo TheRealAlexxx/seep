@@ -160,6 +160,8 @@ Structural rules match documented token formats (prefixes, lengths, alphabets). 
 - Regex plus entropy cannot understand context. Obfuscated or split secrets, secrets in binary blobs, and formats with no documented shape will be missed.
 - Inline `seep:ignore` and allowlists are honor-system; a determined insider can hide anything from any scanner.
 - History scans use `git show` per commit. On very large histories that is thorough rather than fast.
+- `--since` limits which commits are inspected. A secret introduced before the cutoff and still present today will not appear in a limited scan, and a clean limited scan says nothing about the current tree. Use a plain working-tree scan for "is anything live right now" and a full `--history` scan for "what ever leaked".
+- Binary detection looks for NUL bytes in the first 64 KiB and skips larger binary-looking files; a secret buried deep in a binary blob will be missed.
 
 ## Development
 
