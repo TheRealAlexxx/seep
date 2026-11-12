@@ -160,6 +160,7 @@ The entropy gate sets an effective floor above the regex length: a value must be
 ## Limitations
 
 - Regex plus entropy cannot understand context. Obfuscated or split secrets, secrets in binary blobs, and formats with no documented shape will be missed.
+- The generic password rule requires a QUOTED value (`password = "..."`). Unquoted forms such as `PASSWORD=hunter2` in .env files are not detected by it: matching them was measured against real repositories and produced far more false positives on ordinary code (`password = unquote(password)`) than real catches. The generic API-key rule does cover unquoted assignment forms, but neither rule promises full .env coverage.
 - Inline `seep:ignore` and allowlists are honor-system; a determined insider can hide anything from any scanner.
 - History scans use `git show` per commit. On very large histories that is thorough rather than fast.
 - `--since` limits which commits are inspected. A secret introduced before the cutoff and still present today will not appear in a limited scan, and a clean limited scan says nothing about the current tree. Use a plain working-tree scan for "is anything live right now" and a full `--history` scan for "what ever leaked".
