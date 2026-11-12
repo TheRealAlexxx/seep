@@ -59,6 +59,10 @@ def build_parser():
                       help="include the source line of each finding in text "
                            "output. WARNING: lines may contain credential "
                            "values in formats seep does not recognize.")
+    scan.add_argument("--strict", action="store_true",
+                      help="exit 2 when the scan was incomplete (files that "
+                           "could not be read); intended for CI so partial "
+                           "coverage cannot pass as a clean scan")
 
     rules_cmd = sub.add_parser("rules", help="list detection rules")
     rules_cmd.add_argument("--format", choices=("text", "json"), default="text")
@@ -127,12 +131,23 @@ def _run_scan(args):
             return EXIT_ERROR
         findings = filter_new(findings, baseline)
 
+    stats = {
+        "files_scanned": scanner.files_scanned,
+        "skipped_binary": scanner.skipped_binary,
+        "skipped_oversized": scanner.skipped_large,
+        "skipped_unreadable": scanner.skipped_unreadable,
+        "scan_complete": scanner.skipped_unreadable == 0,
+    }
     if args.format == "json":
-        print(to_json(findings))
+        print(to_json(findings, stats=stats))
     elif args.format == "sarif":
-        print(to_sarif(findings, _RULES_BY_ID, __version__))
+        print(to_sarif(findings, _RULES_BY_ID, __version__, stats=stats))
     else:
         print(to_text(findings))
+    if args.strict and not stats["scan_complete"]:
+        print("seep: --strict: scan was incomplete; failing as requested",
+              file=sys.stderr)
+        return EXIT_ERROR
 
     skipped_parts = []
     if scanner.skipped_binary:

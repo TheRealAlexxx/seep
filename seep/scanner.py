@@ -67,6 +67,7 @@ class Scanner:
         self.skipped_large = 0
         self.skipped_binary = 0
         self.skipped_unreadable = 0
+        self.files_scanned = 0
 
     def _allowlisted(self, path, secret):
         return any(p.search(path) or p.search(secret) for p in self.allowlist)
@@ -143,6 +144,7 @@ class Scanner:
         if _looks_binary(raw[:65536]):
             self.skipped_binary += 1
             return []
+        self.files_scanned += 1
         text = raw.decode("utf-8", "replace")
         return self.scan_text(text, path=display_path or path)
 

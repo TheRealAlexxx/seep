@@ -175,3 +175,49 @@ class ExcludeRulesValidationTest(unittest.TestCase):
         code, _, err = run_cli(["scan", self.dir])
         self.assertEqual(code, EXIT_ERROR)
         self.assertIn("not-a-real-rule", err)
+
+
+class StrictModeTest(unittest.TestCase):
+    def test_strict_exits_2_on_unreadable(self):
+        import shutil, tempfile
+        d = tempfile.mkdtemp()
+        try:
+            path = os.path.join(d, "locked.py")
+            with open(path, "w") as handle:
+                handle.write("key = " + DOC_AWS_KEY)
+            os.chmod(path, 0)
+            code, out, err = run_cli(["scan", d, "--strict"])
+            self.assertEqual(code, 2)
+            self.assertIn("incomplete", err)
+            os.chmod(path, 0o644)
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    def test_json_carries_scan_stats(self):
+        import shutil, tempfile
+        d = tempfile.mkdtemp()
+        try:
+            with open(os.path.join(d, "app.py"), "w") as handle:
+                handle.write("print('hello')\n")
+            code, out, _ = run_cli(["scan", d, "--format", "json"])
+            self.assertEqual(code, 0)
+            payload = json.loads(out)
+            self.assertTrue(payload["scan"]["scan_complete"])
+            self.assertEqual(payload["scan"]["skipped_unreadable"], 0)
+            self.assertEqual(payload["scan"]["files_scanned"], 1)
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    def test_sarif_run_properties_carry_scan_stats(self):
+        import shutil, tempfile
+        d = tempfile.mkdtemp()
+        try:
+            with open(os.path.join(d, "app.py"), "w") as handle:
+                handle.write("print('hello')\n")
+            code, out, _ = run_cli(["scan", d, "--format", "sarif"])
+            self.assertEqual(code, 0)
+            doc = json.loads(out)
+            stats = doc["runs"][0]["properties"]["seep:scan"]
+            self.assertTrue(stats["scan_complete"])
+        finally:
+            shutil.rmtree(d, ignore_errors=True)

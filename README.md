@@ -88,6 +88,15 @@ python -m seep scan --staged
 
 seep runs exactly this against itself - see `.github/workflows/tests.yml`. Its own test fixtures are exempted through the `seep.json` allowlist in this repo, which doubles as a worked config example.
 
+### Incomplete scans: the contract
+
+A scan only covers what it could read. Designed exclusions (binary files, oversized files, `.gitignore` entries, your exclude patterns, baselined findings) are intentional and never block success. Read failures are different: a file seep could not open might contain anything, so an incomplete scan must not masquerade as a clean one.
+
+- Text output and stderr always report unreadable files as `UNREADABLE (not scanned!)`.
+- JSON output carries a `scan` block (`files_scanned`, `skipped_binary`, `skipped_oversized`, `skipped_unreadable`, `scan_complete`) so automation can check coverage, not just findings.
+- SARIF output carries the same counters in the run's property bag under `seep:scan`.
+- `--strict` exits 2 whenever `scan_complete` is false, so CI fails on partial coverage instead of passing it. Designed exclusions do not trigger it.
+
 ### Ignoring things
 
 Inline, for one line:

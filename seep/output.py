@@ -53,16 +53,18 @@ def _finding_dict(f):
     }
 
 
-def to_json(findings):
+def to_json(findings, stats=None):
     payload = {
         "version": 1,
         "finding_count": len(findings),
         "findings": [_finding_dict(f) for f in findings],
     }
+    if stats is not None:
+        payload["scan"] = dict(stats)
     return json.dumps(payload, indent=2, sort_keys=True)
 
 
-def to_sarif(findings, rules_by_id, tool_version):
+def to_sarif(findings, rules_by_id, tool_version, stats=None):
     results = []
     for f in findings:
         results.append({
@@ -105,4 +107,6 @@ def to_sarif(findings, rules_by_id, tool_version):
             "results": results,
         }],
     }
+    if stats is not None:
+        doc["runs"][0]["properties"] = {"seep:scan": dict(stats)}
     return json.dumps(doc, indent=2, sort_keys=True)
