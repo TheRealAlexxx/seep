@@ -134,10 +134,16 @@ def _run_scan(args):
     else:
         print(to_text(findings))
 
-    if scanner.skipped_binary or scanner.skipped_large:
-        print("seep: skipped %d binary and %d oversized file%s" % (
-            scanner.skipped_binary, scanner.skipped_large,
-            "s" if scanner.skipped_large != 1 else ""), file=sys.stderr)
+    skipped_parts = []
+    if scanner.skipped_binary:
+        skipped_parts.append("%d binary" % scanner.skipped_binary)
+    if scanner.skipped_large:
+        skipped_parts.append("%d oversized" % scanner.skipped_large)
+    if scanner.skipped_unreadable:
+        skipped_parts.append("%d UNREADABLE (not scanned!)"
+                             % scanner.skipped_unreadable)
+    if skipped_parts:
+        print("seep: skipped " + ", ".join(skipped_parts), file=sys.stderr)
 
     failing = [f for f in findings if meets_threshold(f, args.fail_on)]
     return EXIT_FINDINGS if failing else EXIT_CLEAN

@@ -164,3 +164,20 @@ class BinarySniffDepthTest(unittest.TestCase):
             self.assertEqual(scanner.skipped_binary, 1)
         finally:
             shutil.rmtree(d, ignore_errors=True)
+
+
+class UnreadableFileTest(unittest.TestCase):
+    def test_unreadable_files_counted_not_silent(self):
+        import shutil, tempfile
+        d = tempfile.mkdtemp()
+        try:
+            path = os.path.join(d, "locked.py")
+            with open(path, "w") as handle:
+                handle.write("key = " + DOC_AWS_KEY)
+            os.chmod(path, 0)
+            scanner = Scanner()
+            scanner.scan_directory(d)
+            self.assertEqual(scanner.skipped_unreadable, 1)
+            os.chmod(path, 0o644)
+        finally:
+            shutil.rmtree(d, ignore_errors=True)

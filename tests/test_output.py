@@ -61,3 +61,15 @@ class OutputTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class EmptyOutputTest(unittest.TestCase):
+    def test_sarif_with_zero_findings_is_valid(self):
+        rules_by_id = {rule.id: rule for rule in RULES}
+        doc = json.loads(to_sarif([], rules_by_id, "0.1.0"))
+        self.assertEqual(doc["version"], "2.1.0")
+        self.assertEqual(doc["runs"][0]["results"], [])
+
+    def test_json_with_zero_findings(self):
+        payload = json.loads(to_json([]))
+        self.assertEqual(payload["finding_count"], 0)

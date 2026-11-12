@@ -66,6 +66,7 @@ class Scanner:
         self.include_context = include_context
         self.skipped_large = 0
         self.skipped_binary = 0
+        self.skipped_unreadable = 0
 
     def _allowlisted(self, path, secret):
         return any(p.search(path) or p.search(secret) for p in self.allowlist)
@@ -128,6 +129,7 @@ class Scanner:
         try:
             size = os.path.getsize(path)
         except OSError:
+            self.skipped_unreadable += 1
             return []
         if size > self.max_file_bytes:
             self.skipped_large += 1
@@ -136,6 +138,7 @@ class Scanner:
             with open(path, "rb") as handle:
                 raw = handle.read()
         except OSError:
+            self.skipped_unreadable += 1
             return []
         if _looks_binary(raw[:65536]):
             self.skipped_binary += 1

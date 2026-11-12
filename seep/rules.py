@@ -327,9 +327,12 @@ RULES = [
         flags=0,
     ),
     # --- AI providers ---
-    # Prefixes grounded in owning sources: Anthropic's official docs show
-    # keys starting sk-ant- (example sk-ant-api03-...); sk-proj- is the
-    # current OpenAI project-key prefix per OpenAI's own community forum.
+    # Prefix provenance: Anthropic's official docs show keys starting
+    # sk-ant- (their example: sk-ant-api03-...). For OpenAI, sk-proj- is
+    # the project-key prefix in wide use and on OpenAI's community forum,
+    # but those forum statements are user-generated, not an official
+    # format specification; no official format statement was found in the
+    # checked sources (OpenAI dev docs, help center).
     # Length floors are conservative, not format claims.
     _rule(
         "anthropic-api-key",
