@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "seep"
+version = "0.1.0"
+description = "Zero-dependency secrets scanner for code and git history"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [{name = "TheRealAlexxx"}]
+keywords = ["secrets", "security", "scanner", "git", "entropy", "pre-commit"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Security",
+]
+
+[project.scripts]
+seep = "seep.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["seep*"]
