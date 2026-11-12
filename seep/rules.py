@@ -29,6 +29,7 @@ class Rule:
     entropy_group: Optional[int] = None  # group to entropy-check, if any
     entropy_min: float = 4.3
     entropy_min_length: int = 16  # floor for the entropy check on this rule
+    reject: Optional[re.Pattern] = None  # secrets matching this are dropped
 
     def applies_to(self, text):
         """Cheap prefilter: any keyword must be present (case-insensitive)."""
@@ -41,6 +42,9 @@ class Rule:
         if not self.applies_to(text):
             return
         for match in self.pattern.finditer(text):
+            if self.reject is not None and self.reject.match(
+                    match.group(self.secret_group)):
+                continue
             if self.entropy_group is not None:
                 candidate = match.group(self.entropy_group)
                 if not is_high_entropy(candidate, threshold=self.entropy_min,
@@ -51,7 +55,7 @@ class Rule:
 
 def _rule(rule_id, description, pattern, severity, keywords=(),
           secret_group=0, entropy_group=None, entropy_min=4.3,
-          entropy_min_length=16, flags=re.IGNORECASE):
+          entropy_min_length=16, reject=None, flags=re.IGNORECASE):
     return Rule(
         id=rule_id,
         description=description,
@@ -62,6 +66,7 @@ def _rule(rule_id, description, pattern, severity, keywords=(),
         entropy_group=entropy_group,
         entropy_min=entropy_min,
         entropy_min_length=entropy_min_length,
+        reject=re.compile(reject) if isinstance(reject, str) else reject,
     )
 
 
@@ -78,11 +83,11 @@ RULES = [
     _rule(
         "aws-secret-access-key",
         "AWS secret access key",
-        r"(?i)\baws(.{0,20})?(secret|private)?(.{0,20})?['\"]?([0-9a-zA-Z/+]{40})(?![0-9a-zA-Z/+])['\"]?",
+        r"(?i)\baws[0-9a-z_\-]{0,40}?\s*[:=]\s*['\"]?([0-9a-zA-Z/+]{40})(?![0-9a-zA-Z/+])['\"]?",
         "high",
         keywords=("aws", "secret"),
-        secret_group=4,
-        entropy_group=4,
+        secret_group=1,
+        entropy_group=1,
         entropy_min=4.3,
     ),
     _rule(
@@ -352,7 +357,7 @@ RULES = [
     _rule(
         "generic-password",
         "Hardcoded password assignment",
-        r"(?i)\b(pass(?:word|wd|phrase)|pwd)\b\s*[:=]\s*['\"]?([^'\"\s]{8,64})(?![^'\"\s])['\"]?",
+        r"(?i)\b(pass(?:word|wd|phrase)|pwd)\b\s*[:=]\s*['\"]([^'\"\s]{8,64})['\"]",
         "medium",
         keywords=("password", "passwd", "pwd", "passphrase"),
         secret_group=2,
@@ -372,6 +377,7 @@ RULES = [
         entropy_group=2,
         entropy_min=4.0,
         entropy_min_length=12,
+        reject=r"(?i)[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)+\Z",
         flags=0,
     ),
 ]

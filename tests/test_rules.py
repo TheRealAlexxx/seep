@@ -205,3 +205,38 @@ class RecallGapTest(unittest.TestCase):
             hits("generic-api-key", 'api_key = "g9K2xQ7mZ4vL1pW8nR3tY6uI"'),
             ["g9K2xQ7mZ4vL1pW8nR3tY6uI"],
         )
+
+
+class PrecisionEvidenceTest(unittest.TestCase):
+    """False positives measured on psf/requests history after the first
+    unquoted-value change; these shapes must stay quiet."""
+
+    def test_code_expressions_not_passwords(self):
+        for line in (
+            "        username, password = get_auth_from_url(proxy)",
+            "            password = unquote(password)",
+            "        password = password.encode('latin1')",
+            "        if reduced_uri not in self.passwd:",
+        ):
+            self.assertEqual(hits("generic-password", line), [], line)
+
+    def test_base64_stream_containing_aws_not_a_secret(self):
+        # Cert bundles are 64-char base64 lines; "aws" occurs by chance.
+        line = "aWsgQXJhxZ90xLFybWEgS3VydW11IC0gVMOcQsSwVEFLMUgwRgYDVQQLDD9VbHVzYWwgRWxla3Ry"
+        self.assertEqual(hits("aws-secret-access-key", line), [])
+
+    def test_dotted_identifier_not_api_key(self):
+        self.assertEqual(
+            hits("generic-api-key", "api_key = settings.SERVICE_API_KEY\n"), []
+        )
+        self.assertEqual(
+            hits("generic-api-key", "api_key = config.services.api_key_value\n"),
+            [],
+        )
+
+    def test_rfc_example_token_still_structural_match(self):
+        # RFC 6749's documentation example; a deliberate true structural hit.
+        line = "Location: http://example.com/cb#access_token=2YotnFZFEjr1zCsicMWpAA"
+        self.assertEqual(
+            hits("generic-api-key", line), ["2YotnFZFEjr1zCsicMWpAA"]
+        )
