@@ -130,7 +130,7 @@ class Scanner:
                 raw = handle.read()
         except OSError:
             return []
-        if _looks_binary(raw[:8192]):
+        if _looks_binary(raw[:65536]):
             self.skipped_binary += 1
             return []
         text = raw.decode("utf-8", "replace")

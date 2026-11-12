@@ -141,3 +141,19 @@ class CoLocatedSecretTest(unittest.TestCase):
         line = 'db = "' + url + '"; backup = "' + url + '"'
         for finding in Scanner().scan_text(line):
             self.assertNotIn(url, finding.line_preview)
+
+
+class BinarySniffDepthTest(unittest.TestCase):
+    def test_nul_beyond_8kb_still_detected_as_binary(self):
+        import tempfile, shutil
+        d = tempfile.mkdtemp()
+        try:
+            blob = b"A" * 40000 + b"\x00" + DOC_AWS_KEY.encode()
+            path = os.path.join(d, "deep.bin")
+            with open(path, "wb") as handle:
+                handle.write(blob)
+            scanner = Scanner()
+            self.assertEqual(scanner.scan_directory(d), [])
+            self.assertEqual(scanner.skipped_binary, 1)
+        finally:
+            shutil.rmtree(d, ignore_errors=True)

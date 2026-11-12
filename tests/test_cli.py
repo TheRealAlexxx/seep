@@ -152,3 +152,16 @@ class CliGitTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ExcludeRulesValidationTest(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(lambda: shutil.rmtree(self.dir, ignore_errors=True))
+
+    def test_unknown_exclude_rule_id_is_a_clean_error(self):
+        with open(os.path.join(self.dir, "seep.json"), "w") as handle:
+            json.dump({"exclude_rules": ["not-a-real-rule"]}, handle)
+        code, _, err = run_cli(["scan", self.dir])
+        self.assertEqual(code, EXIT_ERROR)
+        self.assertIn("not-a-real-rule", err)

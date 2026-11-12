@@ -76,6 +76,12 @@ def _run_scan(args):
         print("seep: %s" % exc, file=sys.stderr)
         return EXIT_ERROR
 
+    known_ids = {r.id for r in RULES}
+    unknown = set(config["exclude_rules"]) - known_ids
+    if unknown:
+        print("seep: unknown rules in exclude_rules: %s"
+              % ", ".join(sorted(unknown)), file=sys.stderr)
+        return EXIT_ERROR
     rules = [r for r in RULES if r.id not in config["exclude_rules"]]
     scanner = Scanner(rules=rules, allowlist=config["allowlist"],
                       max_file_bytes=config["max_file_bytes"])
