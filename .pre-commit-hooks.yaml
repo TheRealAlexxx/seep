@@ -1,0 +1,6 @@
+- id: seep
+  name: seep secrets scan
+  description: Blocks commits that stage secrets, via seep's staged scan.
+  entry: python -m seep scan --staged
+  language: python
+  pass_filenames: false

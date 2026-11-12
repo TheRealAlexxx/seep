@@ -35,11 +35,13 @@ def load_config(root=None, path=None):
         path = find_config(root)
     if path is None:
         return config
-    with open(path, "r", encoding="utf-8") as handle:
-        try:
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
             data = json.load(handle)
-        except json.JSONDecodeError as exc:
-            raise ConfigError("invalid JSON in %s: %s" % (path, exc))
+    except FileNotFoundError:
+        raise ConfigError("config file not found: %s" % path)
+    except json.JSONDecodeError as exc:
+        raise ConfigError("invalid JSON in %s: %s" % (path, exc))
     if not isinstance(data, dict):
         raise ConfigError("%s must contain a JSON object" % path)
     unknown = set(data) - set(DEFAULTS)
