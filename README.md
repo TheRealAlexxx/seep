@@ -147,6 +147,8 @@ Allowlist entries are regexes matched against file paths and matched secret valu
 
 Structural rules match documented token formats (prefixes, lengths, alphabets). Generic password/API-key rules only fire when the assigned value also passes a Shannon-entropy check, which is what keeps `password = "hunter2"` from paging you.
 
+The entropy gate sets an effective floor above the regex length: a value must be long enough AND mix enough distinct characters. In practice passwords need roughly 12+ mostly-unique characters and API keys roughly 16+; shorter human-chosen passwords and short keys are deliberately not flagged, because flagging them buries real findings under test-data noise. This is a recall/false-positive tradeoff, chosen for precision and tested as intentional behavior.
+
 ## Design notes
 
 - **Stdlib only, on purpose.** Every import is Python's standard library, so the scanner runs in minimal CI images, on locked-down machines and inside other tools without an install step. The cost is reinventing some wheels (JSON config instead of TOML, `unittest` instead of pytest); the payoff is zero supply-chain surface for a security tool.

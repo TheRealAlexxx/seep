@@ -142,6 +142,30 @@ class EntropyGatedRuleTest(unittest.TestCase):
         self.assertEqual(hits("generic-password", "the password field"), [])
 
 
+class EffectiveFloorTest(unittest.TestCase):
+    """The entropy gate sets an EFFECTIVE floor above the regex length:
+    a value passes only when it is long enough AND mixes enough distinct
+    characters. These tests pin that as intentional false-positive
+    control, not a bug."""
+
+    def test_short_human_password_intentionally_not_flagged(self):
+        # 8 chars, all unique: entropy 3.0 < 3.5 threshold. Real but
+        # human-memorable; flagging these floods test/dev code.
+        self.assertEqual(hits("generic-password", 'password = "Kx9mQ2vL"'), [])
+
+    def test_14_char_unique_api_key_intentionally_not_flagged(self):
+        # 14 unique chars: entropy ~3.81 < 4.0 threshold for API keys.
+        self.assertEqual(
+            hits("generic-api-key", 'api_key = "Kx9mQ2vLpWnR7t"'), []
+        )
+
+    def test_16_char_unique_api_key_flagged(self):
+        self.assertEqual(
+            hits("generic-api-key", 'api_key = "Kx9mQ2vLpWnR7tY4"'),
+            ["Kx9mQ2vLpWnR7tY4"],
+        )
+
+
 class RuleIntegrityTest(unittest.TestCase):
     def test_unique_ids(self):
         ids = [r.id for r in RULES]
