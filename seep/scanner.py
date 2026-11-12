@@ -67,11 +67,16 @@ class Scanner:
         return any(p.search(path) or p.search(secret) for p in self.allowlist)
 
     def scan_text(self, text, path="<text>"):
-        """Scan a string and return findings with full secrets stripped out."""
-        findings = []
+        """Scan a string and return findings with full secrets stripped out.
+
+        Two passes: first collect every match, then build findings. A
+        finding's line preview must redact EVERY detected secret on the
+        line, not just its own - otherwise a finding for one secret would
+        leak any co-located secret in the clear.
+        """
         offsets = _line_offsets(text)
         lines = text.splitlines()
-        seen = set()
+        collected = []
         for rule in self.rules:
             for match in rule.finditer(text):
                 secret = match.group(rule.secret_group)
@@ -81,21 +86,34 @@ class Scanner:
                 line_text = lines[line_no - 1] if line_no - 1 < len(lines) else ""
                 if IGNORE_COMMENT in line_text:
                     continue
-                fp = _fingerprint(secret)
-                key = (rule.id, fp, line_no)
-                if key in seen:
-                    continue
-                seen.add(key)
-                redacted = redact(secret)
-                findings.append(Finding(
-                    rule_id=rule.id,
-                    severity=rule.severity,
-                    path=path,
-                    line_number=line_no,
-                    redacted_secret=redacted,
-                    secret_fingerprint=fp,
-                    line_preview=line_text.replace(secret, redacted).strip()[:200],
-                ))
+                collected.append((rule, match, secret, line_no))
+        secrets_by_line = {}
+        for _, _, secret, line_no in collected:
+            secrets_by_line.setdefault(line_no, set()).add(secret)
+        findings = []
+        seen = set()
+        for rule, _, secret, line_no in collected:
+            fp = _fingerprint(secret)
+            key = (rule.id, fp, line_no)
+            if key in seen:
+                continue
+            seen.add(key)
+            line_text = lines[line_no - 1] if line_no - 1 < len(lines) else ""
+            preview = line_text
+            # Longest first so a secret that is a substring of another
+            # (e.g. a password inside a database URL) is already gone when
+            # the shorter one is replaced.
+            for other in sorted(secrets_by_line[line_no], key=len, reverse=True):
+                preview = preview.replace(other, redact(other))
+            findings.append(Finding(
+                rule_id=rule.id,
+                severity=rule.severity,
+                path=path,
+                line_number=line_no,
+                redacted_secret=redact(secret),
+                secret_fingerprint=fp,
+                line_preview=preview.strip()[:200],
+            ))
         findings.sort(key=lambda f: (f.path, f.line_number, f.rule_id))
         return findings
 

@@ -116,3 +116,28 @@ class ScanDirectoryTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CoLocatedSecretTest(unittest.TestCase):
+    """A finding's preview must never expose a DIFFERENT secret on its line."""
+
+    GH_TOKEN = "ghp_" + "a1B2c3D4" * 4 + "e5F6"
+
+    def test_two_secrets_one_line_both_redacted_in_every_preview(self):
+        line = 'aws = "' + DOC_AWS_KEY + '"; gh = "' + self.GH_TOKEN + '"'
+        findings = Scanner().scan_text(line, path="x.py")
+        self.assertEqual(len(findings), 2)
+        for finding in findings:
+            self.assertNotIn(DOC_AWS_KEY, finding.line_preview)
+            self.assertNotIn(self.GH_TOKEN, finding.line_preview)
+
+    def test_same_secret_twice_on_line_fully_redacted(self):
+        line = "a=" + DOC_AWS_KEY + " b=" + DOC_AWS_KEY
+        for finding in Scanner().scan_text(line):
+            self.assertNotIn(DOC_AWS_KEY, finding.line_preview)
+
+    def test_secret_substring_of_longer_secret_handled(self):
+        url = "postgres://user:Sup3rS3cret!x9@host:5432/db"
+        line = 'db = "' + url + '"; backup = "' + url + '"'
+        for finding in Scanner().scan_text(line):
+            self.assertNotIn(url, finding.line_preview)
