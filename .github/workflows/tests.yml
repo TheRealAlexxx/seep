@@ -1,0 +1,39 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  unittest:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ubuntu-latest no longer ships a Python 3.9 build; keep 3.9 on 22.04.
+          - {python: '3.9', os: ubuntu-22.04}
+          - {python: '3.10', os: ubuntu-latest}
+          - {python: '3.11', os: ubuntu-latest}
+          - {python: '3.12', os: ubuntu-latest}
+          - {python: '3.13', os: ubuntu-latest}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Run test suite
+        run: python -m unittest discover -s tests -v
+
+  dogfood:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Scan own working tree
+        run: python -m seep scan . --fail-on low
+      - name: Scan own git history
+        run: python -m seep scan . --history --fail-on low

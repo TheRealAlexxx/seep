@@ -1,0 +1,9 @@
+{
+  "allowlist": [
+    "^tests/",
+    "AKIAIOSFODNN7EXAMPLE",
+    "ASIAIOSFODNN7EXAMPLE",
+    "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+  ],
+  "fail_on": "low"
+}
