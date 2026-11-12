@@ -59,25 +59,34 @@ def iter_commits(root, since=None, rev="--all"):
 
 
 def parse_added_lines(diff_text):
-    """Yield (path, line_number, added_text) from a zero-context diff."""
+    """Yield (path, line_number, added_text) from a zero-context diff.
+
+    File headers (---/+++) are only headers before the first hunk of a file
+    section; inside a hunk, content may legitimately start with "++" (or
+    anything else), so hunk state is tracked explicitly.
+    """
     path = None
     new_line = 0
+    in_hunk = False
     for line in diff_text.splitlines():
-        if line.startswith("+++ b/"):
+        if line.startswith("diff --git "):
+            in_hunk = False
+        elif not in_hunk and line.startswith("+++ b/"):
             path = line[len("+++ b/"):]
-        elif line.startswith("+++ "):
+        elif not in_hunk and line.startswith("+++ "):
             path = line[4:]
         elif line.startswith("@@"):
             match = _HUNK_RE.match(line)
             if match:
                 new_line = int(match.group(1))
-        elif line.startswith("+") and not line.startswith("+++"):
+                in_hunk = True
+        elif in_hunk and line.startswith("+"):
             if path is not None and path != "/dev/null":
                 yield path, new_line, line[1:]
             new_line += 1
-        elif line.startswith("-"):
+        elif in_hunk and line.startswith("-"):
             continue
-        else:
+        elif in_hunk:
             if not line.startswith("\\"):
                 new_line += 1
 
@@ -111,7 +120,13 @@ def scan_history(scanner, root, since=None, rev="--all", first_only=True):
     findings = []
     seen = set()
     for sha, author, date in commits:
-        diff = _run_git(root, ["show", "--format=", "--unified=0", sha])
+        # -m --first-parent: merge commits produce a regular diff against
+        # their first parent, so changes made inside merges (conflict
+        # resolutions) are scanned with correct paths and line numbers.
+        # Without it, merges print a combined diff a line parser cannot
+        # handle, or nothing at all.
+        diff = _run_git(root, ["show", "--format=", "--unified=0",
+                               "-m", "--first-parent", sha])
         added = {}
         for path, line_no, text in parse_added_lines(diff):
             added.setdefault(path, []).append((line_no, text))

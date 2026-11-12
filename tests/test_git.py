@@ -160,3 +160,67 @@ class HelpersTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DiffParserEdgeCaseTest(unittest.TestCase):
+    """Regression tests for realistic diff shapes the parser must survive."""
+
+    def test_added_line_starting_with_double_plus_is_scanned(self):
+        # Content "++x" appears in a diff as "+++x"; naive startswith("+++")
+        # header detection swallows it.
+        diff = (
+            "diff --git a/x.py b/x.py\n"
+            "--- a/x.py\n"
+            "+++ b/x.py\n"
+            "@@ -0,0 +1 @@\n"
+            "+++this content starts with two plus signs\n"
+        )
+        rows = list(seepgit.parse_added_lines(diff))
+        self.assertEqual(rows, [("x.py", 1, "++this content starts with two plus signs")])
+
+    def test_header_lines_still_parse_after_hunk_content(self):
+        diff = (
+            "diff --git a/a.py b/a.py\n"
+            "--- a/a.py\n"
+            "+++ b/a.py\n"
+            "@@ -0,0 +1 @@\n"
+            "+key = value\n"
+            "diff --git a/b.py b/b.py\n"
+            "--- a/b.py\n"
+            "+++ b/b.py\n"
+            "@@ -0,0 +1 @@\n"
+            "+second = file\n"
+        )
+        rows = list(seepgit.parse_added_lines(diff))
+        self.assertEqual(rows, [("a.py", 1, "key = value"), ("b.py", 1, "second = file")])
+
+
+class MergeCommitGapTest(unittest.TestCase):
+    def setUp(self):
+        self.repo = FixtureRepo()
+        self.addCleanup(self.repo.cleanup)
+
+    def _git(self, *args):
+        subprocess.run(["git", "-C", self.repo.dir] + list(args),
+                       check=True, capture_output=True)
+
+    def test_secret_introduced_in_merge_commit_is_found(self):
+        # A change made IN a merge commit itself (conflict resolution) is not
+        # part of any branch commit; git show without -m prints no diff for
+        # merges, so a scanner built on it silently misses these.
+        self.repo.commit_file("app.py", "base\n", "base")
+        self._git("checkout", "-q", "-b", "feature")
+        self.repo.commit_file("app.py", "base\nfeature\n", "feature work")
+        self._git("checkout", "-q", "main")
+        self.repo.commit_file("app.py", "base\nmain\n", "main work")
+        # Merge with conflict resolved manually, adding a secret in the merge.
+        subprocess.run(["git", "-C", self.repo.dir, "merge", "feature"],
+                       capture_output=True)  # conflicts
+        with open(os.path.join(self.repo.dir, "app.py"), "w") as handle:
+            handle.write("base\nmain\nfeature\nkey = " + DOC_AWS_KEY + "\n")
+        self._git("add", "app.py")
+        self._git("commit", "-q", "-m", "merge feature, resolve conflicts")
+        findings = seepgit.scan_history(Scanner(), self.repo.dir)
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0].path, "app.py")
+        self.assertEqual(findings[0].line_number, 4)  # real line in merged file
